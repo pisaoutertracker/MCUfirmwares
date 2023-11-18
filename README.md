@@ -28,29 +28,29 @@ mpremote fs cp  atom-mp.py :main.py
 
 # M5Stack
 
-Reboot the device.
 
-## Install firmware
+### Install firmware
 
 ```
 wget https://github.com/russhughes/ili9342c_mpy/raw/main/firmware/M5STACK_16M/firmware.bin
 esptool.py --chip esp32 --port /dev/ttyACM0 write_flash -z 0x1000  firmware.bin
 ```
+Reboot the device.
 
-Install needed packages
+### Install needed packages
 ```
 mpremote mip install https://github.com/kfricke/micropython-sht31/raw/master/sht31.py
 mpremote mip install https://raw.githubusercontent.com/RuiSantosdotme/ESP-MicroPython/master/code/MQTT/umqttsimple.py
 mpremote mip install https://github.com/gandro/micropython-m5stamp-c3u/raw/main/lib/qmp6988.py
 ```
 
+### Edit configuration
 Edit config.json and once correct upload it
 ```
 mpremote  fs cp config.json :config.json
 ```
 
-
-## Test or install py main 
+### Test or install py main 
 To permanently install:
 ```
 mpremote fs cp  m5-mp.py :main.py
