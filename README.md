@@ -22,7 +22,7 @@ mpremote fs cp config.json :config.json
 
 ### Update firmware when needed
 ```
-mpremote fs cp  atom-mp.py :main.py
+mpremote fs cp  atom-env-gyro.py :main.py
 ```
 
 
@@ -53,12 +53,12 @@ mpremote  fs cp config.json :config.json
 ### Test or install py main 
 To permanently install:
 ```
-mpremote fs cp  m5-mp.py :main.py
+mpremote fs cp  m5-env.py :main.py
 ```
 
 To just test
 ```
-mpremote run m5-mp.py
+mpremote run m5-env.py
 ```
 
 ## Compiling custom firmware for M5Stack
