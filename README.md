@@ -1,4 +1,4 @@
-# Only needed the first time
+## Only needed the first time
 
 ```
 esptool.py --chip esp32s3 --port /dev/ttyACM0 erase_flash
@@ -13,13 +13,13 @@ esptool.py --chip esp32 --port /dev/ttyUSB0 write_flash -z 0x1000 ESP32_GENERIC_
 
 
 
-# Configure when settings change
+## Configure when settings change
 Edit config.json then copy it to the device
 ```
 mpremote fs cp config.json :config.json
 ```
 
-#Update firmware when needed
+## Update firmware when needed
 ```
 mpremote fs cp  atom-mp.py :main.py
 ```
