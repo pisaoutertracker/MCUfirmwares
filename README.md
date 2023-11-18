@@ -73,8 +73,9 @@ Tools needed (on ubuntu)
  sudo apt install gperf
 ```
 
-Compile firmware
+Download and compile firmware
 ```
+git clone https://github.com/m5stack/M5Stack_MicroPython.git
 cd M5Stack_MicroPython/MicroPython_BUILD/
 cp sdkconfig.defaults  sdkconfig
 ./BUILD.sh -v
