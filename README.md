@@ -1,4 +1,5 @@
-## Only needed the first time
+# AtomS3
+### Only needed the first time
 
 ```
 esptool.py --chip esp32s3 --port /dev/ttyACM0 erase_flash
@@ -13,14 +14,78 @@ esptool.py --chip esp32 --port /dev/ttyUSB0 write_flash -z 0x1000 ESP32_GENERIC_
 
 
 
-## Configure when settings change
+### Configure when settings change
 Edit config.json then copy it to the device
 ```
 mpremote fs cp config.json :config.json
 ```
 
-## Update firmware when needed
+### Update firmware when needed
 ```
 mpremote fs cp  atom-mp.py :main.py
 ```
+
+
+# M5Stack
+
+Reboot the device.
+
+## Install firmware
+
+```
+wget https://github.com/russhughes/ili9342c_mpy/raw/main/firmware/M5STACK_16M/firmware.bin
+esptool.py --chip esp32 --port /dev/ttyACM0 write_flash -z 0x1000  firmware.bin
+```
+
+Install needed packages
+```
+mpremote mip install https://github.com/kfricke/micropython-sht31/raw/master/sht31.py
+mpremote mip install https://raw.githubusercontent.com/RuiSantosdotme/ESP-MicroPython/master/code/MQTT/umqttsimple.py
+mpremote mip install https://github.com/gandro/micropython-m5stamp-c3u/raw/main/lib/qmp6988.py
+```
+
+Edit config.json and once correct upload it
+```
+mpremote  fs cp config.json :config.json
+```
+
+
+## Test or install py main 
+To permanently install:
+```
+mpremote fs cp  m5-mp.py :main.py
+```
+
+To just test
+```
+mpremote run m5-mp.py
+```
+
+## Compiling custom firmware for M5Stack
+
+Tools needed (on ubuntu)
+```
+ sudo apt install ncurses-base
+ sudo apt-get install libncurses-dev
+ sudo apt search flex
+ sudo apt install flex
+ sudo apt install bison
+ sudo apt install gperf
+```
+
+Compile firmware
+```
+cd M5Stack_MicroPython/MicroPython_BUILD/
+cp sdkconfig.defaults  sdkconfig
+./BUILD.sh -v
+```
+
+Flash firmware
+```
+./BUILD.sh erase -p /dev/ttyACM0 
+./BUILD.sh flash -p /dev/ttyACM0 
+cd ../..
+```
+
+
 

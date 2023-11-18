@@ -1,4 +1,3 @@
-import vga1_bold_16x32 as font
 import sht31
 from umqttsimple import *
 import qmp6988
@@ -8,7 +7,6 @@ import network
 from time import sleep
 import time
 import math
-
 def compatible(a,b):
     return abs((a-b)/(a+b)) < 0.01
 
@@ -49,21 +47,7 @@ mqttUpdate=60
 lt=0
 lrh=0
 ldp=0
-#from m5stack import lcd
-import ili9342c
-display= ili9342c.ILI9342C(
-        SPI(2, baudrate=60000000, sck=Pin(18), mosi=Pin(23)),
-        320,
-        240,
-        reset=Pin(33, Pin.OUT),
-        cs=Pin(14, Pin.OUT),
-        dc=Pin(27, Pin.OUT),
-        backlight=Pin(32, Pin.OUT),
-        rotation=0,
-        buffer_size=16*32*2)
-display.init()
-display.fill(ili9342c.GREEN)
-display.rotation(0)
+from m5stack import lcd
 
 while True:
   curr = time.time()
@@ -77,16 +61,16 @@ while True:
       lt=t
       ldp=dew_point
 
-      bgcolor= ili9342c.color565(0,255,0) if dew_point < 20 else ili9342c.color565(0,0,255)
-      display.fill(bgcolor)
-#      lcd.clear()
-#      lcd.text(0,0, "%.1f C"%t)
-#      lcd.text(0,30, "%.1f %%"%rh)
-#      lcd.text(0,60, "%.1f C"%dew_point)
+      #bgcolor= st7789py.color565(0,255,0) if dew_point < 20 else st7789py.color565(0,0,255)
+      #display.fill(bgcolor)
+      lcd.clear()
+      lcd.text(0,0, "%.1f C"%t)
+      lcd.text(0,30, "%.1f %%"%rh)
+      lcd.text(0,60, "%.1f C"%dew_point)
 
-      display.text(font,"%.1f C"%t,0,0, ili9342c.color565(0,0,0),bgcolor )
-      display.text(font,"%.1f %%"%rh,0,30, ili9342c.color565(0,0,0),bgcolor )
-      display.text(font,"%.1f C"%dew_point,0,60, ili9342c.color565(0,0,0),bgcolor )
+      #display.text(font,"%.1f C"%t,0,0, st7789py.color565(0,0,0),bgcolor )
+      #display.text(font,"%.1f %%"%rh,0,30, st7789py.color565(0,0,0),bgcolor )
+      #display.text(font,"%.1f C"%dew_point,0,60, st7789py.color565(0,0,0),bgcolor )
 
   if curr - lastReport < 0 or curr - lastReport > mqttUpdate :
     lastReport = time.time()
