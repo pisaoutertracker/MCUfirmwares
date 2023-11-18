@@ -1,3 +1,0 @@
-[submodule "M5Stack_MicroPython"]
-	path = M5Stack_MicroPython
-	url = https://github.com/m5stack/M5Stack_MicroPython.git
