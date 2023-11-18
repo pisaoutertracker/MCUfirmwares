@@ -1,0 +1,7 @@
+{
+"ssid": "<yourssid>",
+"wlanpass": "<yourpass>",
+"mqttserver": "test.mosquitto.org",
+"mqttclient": "AtomS3",
+"mqtttopic": "/environment/HumAndTemp"
+}
