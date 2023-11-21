@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ChartJS</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+	    <div style="width:1000px; height:400px;">
+    <canvas id="myChart" width="1000" height="400"></canvas>
+	    </div>  <script>
+        fetch('/data')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('myChart').getContext('2d');
+
+                const min_x = Math.min(...data.map(([x]) => x));
+                const max_x = Math.max(...data.map(([x]) => x));
+                const min_y = Math.min(...data.map(([,y]) => y));
+                const max_y = Math.max(...data.map(([,y]) => y));
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Line Dataset',
+                            data: data.map(([x, y]) => ({x, y})),
+                            fill: false,
+                            borderColor: 'red'
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            x: {
+                                type: 'linear',   // this line is added to specify x-axis as numerical
+                                min: min_x,
+                                max: max_x
+                            },
+                            y: {
+                                min: min_y,
+                                max: max_y
+                            }
+                        }
+                    }
+                });
+            });
+    </script>
+</body>
+</html>
