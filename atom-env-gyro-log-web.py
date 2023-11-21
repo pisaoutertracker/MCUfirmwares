@@ -64,7 +64,7 @@ class ZSLogger:
 
     def log(self,t,data):
         if t - self.lastTime > self.maxInterval or abs(data-self.lastData) > self.resolution :
-#            print("log",t,self.lastTime,t-self.lastTime,data)
+            print("log",t,data)
             if self.lastTime==0:
                 delta=0
             else:
@@ -96,7 +96,7 @@ class ZSLogger:
     def writeData(self):
         # Open file in write binary mode incrementing last filename
         self.last+=1
-        with open("/data/"+self.filename+"%s"%(self.last)+".bin", 'ab') as f:
+        with open("/data/"+self.filename+"%03d"%(self.last)+".bin", 'ab') as f:
             print("flushing to file")
             # Iterate over the data
             for i in range(self.index):
@@ -205,7 +205,7 @@ class Application:
         self.display.fill(bgcolor)
         self.display.text(font, "Temp: {:.1f}".format(t), 0, 0, st7789py.BLACK , bgcolor)
         self.display.text(font, "R.H.: {:.1f}".format(rh), 0, 16,st7789py.BLACK, bgcolor)
-        self.display.text(font, "Pres: {:.2f}".format(p/1000.), 0, 32, st7789py.BLACK,bgcolor)
+        self.display.text(font, "Pres: {:.2f}".format(p/100.), 0, 32, st7789py.BLACK,bgcolor)
         self.display.text(font, "DewP: {:.1f}".format(dp), 0, 48, st7789py.BLACK,bgcolor)
         self.display.text(font, "Mem: %s"%(gc.mem_free()), 0, 96, st7789py.BLACK,bgcolor)
 
@@ -217,7 +217,9 @@ class Application:
     async def acceleration_sensor_loop(self):
         while True:
             self.logger.log(time.time_ns()/1e9,self.hardware.acc_g())  
-            await asyncio.sleep_ms(5)
+#            print(time.time_ns()/1e9,self.hardware.acc_g())  
+#            print(self.hardware.acc_g())  
+            await asyncio.sleep(0.0001)
         
     async def server_callback(self,reader, writer):
         print("server callback")
@@ -235,6 +237,7 @@ class Application:
             data = []
             writer.write('HTTP/1.0 200 OK\r\nContent-type: application/json\r\n\r\n[')
             entries=0
+            last=0
             for f in files:
                 #print(f)
                 if f.endswith('.bin'):
@@ -244,9 +247,17 @@ class Application:
                     for i,d in enumerate(data):
                         if entries > 0:
                             writer.write(',')
+                            writer.write("[%s,%s],"%(d[0],last))
                         writer.write("[%s,%s]"%(d[0],d[1]))
+                        last=d[1]
                         entries+=1
                         
+#            for i in range(self.logger.index):
+#                if entries > 0:
+#                   writer.write(',')
+#                writer.write("[%s,%s]"%(self.logger.tdata[i],self.logger.ddata[i])) 
+#                entries+=1
+
     #        print(data)
 #            response = 'HTTP/1.0 200 OK\r\nContent-type: application/json\r\n\r\n' + json.dumps(data)
  #           print(response)
