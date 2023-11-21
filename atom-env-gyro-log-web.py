@@ -17,7 +17,7 @@ except:
     mip.install("https://github.com/arizzi/st7789py_mpy/raw/master/lib/st7789py.py")
     mip.install("https://github.com/arizzi/st7789py_mpy/raw/master/fonts/romfonts/vga2_bold_16x32.py")
     mip.install("https://github.com/arizzi/st7789py_mpy/raw/master/fonts/romfonts/vga1_8x16.py")
-
+    import vga1_8x16 as font
     from mpu6886 import MPU6886,ACCEL_FS_SEL_16G
     from umqttsimple import *
     import sht31
