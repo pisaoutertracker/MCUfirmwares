@@ -157,6 +157,8 @@ void logToScreen() {
   
    if(xCoord > 300 || xCoord == 0){
       M5.Lcd.fillScreen(BLACK);
+      M5.Lcd.setTextSize(1);
+
       //Draw white line a 2g and 4g
       M5.Lcd.drawLine(0, 240 - 2*30, 320, 240 - 2*30, WHITE);
       M5.Lcd.drawLine(0, 240 - 4*30, 320, 240 - 4*30, WHITE);
