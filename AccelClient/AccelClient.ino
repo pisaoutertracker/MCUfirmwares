@@ -11,7 +11,7 @@ String clientName="B ";
 WiFiClient client;
 
 struct Data {
-  float x,y,z;
+  float x,y,z,total,maxTotal;
   unsigned long t;
 };
 const int MAX_DATA=10000;
@@ -60,7 +60,15 @@ float accelX_last = 0;
 float accelY_last = 0;
 float accelZ_last = 0;
 unsigned long lastUpdate = 0;
+float maxTotal=0;
+
 void loop() {
+  //check wifi, reboot if lost
+  if (WiFi.status() != WL_CONNECTED) {
+    M5.Lcd.println("WiFi connection lost, rebooting...");
+    delay(2000);
+    ESP.restart();
+  }
   // Establish connection to the server
   if (!client.connected()) {
     M5.Lcd.println("Connecting to server...");
@@ -75,8 +83,11 @@ void loop() {
   // Get accelerometer data
   float accelX, accelY, accelZ;
   M5.Imu.getAccelData(&accelX, &accelY, &accelZ);
+  float total = sqrt(accelX * accelX + accelY * accelY + (accelZ) * (accelZ));
+
   //zero suppression, only report when the value changes more than 0.1
-  if (abs(accelX_last - accelX) > 0.1 || abs(accelY_last - accelY) > 0.1 || abs(accelZ_last - accelZ) > 0.1) {
+  if (abs(accelX_last - accelX) > 0.1 || abs(accelY_last - accelY) > 0.1 || abs(accelZ_last - accelZ) > 0.1
+  || millis() - lastUpdate > 500 || millis() < lastUpdate) {
     accelX_last = accelX;
     accelY_last = accelY;
     accelZ_last = accelZ;
@@ -84,13 +95,38 @@ void loop() {
     buffer[(dataStart+dataLen)%MAX_DATA].y=accelY;
     buffer[(dataStart+dataLen)%MAX_DATA].z=accelZ;
     buffer[(dataStart+dataLen)%MAX_DATA].t=millis();
+    buffer[(dataStart+dataLen)%MAX_DATA].total=total;
+
+    //find maximum over last 1000 updates
+    // maxTotal=0;
+    // for (int i=0; i<1000 && i <dataLen; i++) {
+    //   if (buffer[(dataStart+dataLen-i)%MAX_DATA].total>maxTotal) {
+    //     maxTotal=buffer[(dataStart+dataLen-i)%MAX_DATA].total;
+    //   }
+    // }
+    //find maximum over last 1s, break after you go out of interval
+    maxTotal=0;
+    for (int i=0; i <dataStart+dataLen; i++) {
+      if (buffer[(dataStart+dataLen-i)%MAX_DATA].t>millis()-1000) {
+        if (buffer[(dataStart+dataLen-i)%MAX_DATA].total>maxTotal) {
+
+          maxTotal=buffer[(dataStart+dataLen-i)%MAX_DATA].total;
+        }
+      } else {
+        break;
+      }
+    }
+    buffer[(dataStart+dataLen)%MAX_DATA].maxTotal=maxTotal;
     dataLen++;
     dataLen%=MAX_DATA;
+    
     
   } else {
     //no change, take the chance to send one data
     if (dataLen>0) {
-      String data = clientName+String(buffer[dataStart].t, 10) + "," +
+      String data = clientName+String(maxTotal, 2) + "  " +
+              String(buffer[dataStart].maxTotal, 2) + "," +
+              String(buffer[dataStart].t, 10) + "," +
               String(buffer[dataStart].x, 2) + "," + String(buffer[dataStart].y, 2) + "," + String(buffer[dataStart].z, 2) + "\n";
       // Send data to the server
       client.print(data);
@@ -107,13 +143,14 @@ void loop() {
 
   // Display the sent data on screen
   // upadte LCD only at most every 0.3 seconds
-  if (millis() - lastUpdate < 500 || lastUpdate > millis()) {
+  if (millis() - lastUpdate < 500 && lastUpdate < millis()) {
     return;
   }
+  lastUpdate = millis();
   
-  String data = clientName+String(buffer[(dataStart+dataLen-1)%MAX_DATA].t, 10) + "," +
-              String(buffer[(dataStart+dataLen-1)%MAX_DATA].x, 2) + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].y, 2)
-               + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].z, 2);
+  String data = clientName+String(maxTotal, 2) ;//+ "  " +String(buffer[(dataStart+dataLen-1)%MAX_DATA].t, 10) + "," +
+              //String(buffer[(dataStart+dataLen-1)%MAX_DATA].x, 2) + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].y, 2)
+              // + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].z, 2);
  
   M5.Lcd.println(data);
   //wrap LCD
