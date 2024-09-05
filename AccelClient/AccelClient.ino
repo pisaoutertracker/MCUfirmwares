@@ -6,7 +6,7 @@ const char* ssid = "M5Stack_AP";
 const char* password = "12345678";
 const char* serverIP = "192.168.100.1";
 const uint16_t serverPort = 80;
-String clientName="B ";
+String clientName="A ";
 // WiFi client
 WiFiClient client;
 
@@ -61,33 +61,42 @@ float accelY_last = 0;
 float accelZ_last = 0;
 unsigned long lastUpdate = 0;
 float maxTotal=0;
-
+unsigned long lastMeasure=0;
+int deltaT=0;
+int counter=0;
+int maxDataLen=0;
+int cursorY=0;
 void loop() {
-  //check wifi, reboot if lost
-  if (WiFi.status() != WL_CONNECTED) {
-    M5.Lcd.println("WiFi connection lost, rebooting...");
-    delay(2000);
-    ESP.restart();
-  }
-  // Establish connection to the server
-  if (!client.connected()) {
-    M5.Lcd.println("Connecting to server...");
-    if (!client.connect(serverIP, serverPort)) {
-      M5.Lcd.println("Connection failed!");
-      delay(2000);
-      return;
-    }
-    M5.Lcd.println("Connected to server!");
-  }
 
+  if(dataLen>maxDataLen) {
+    maxDataLen=dataLen;
+  }
   // Get accelerometer data
   float accelX, accelY, accelZ;
+  if(counter++%1000==0) {
+    
+    M5.Lcd.fillRect(0, 80, 80, 40, BLACK);
+    M5.Lcd.setCursor(0, 80);
+    deltaT=millis()-lastMeasure;
+    float rate=1000.0/(deltaT);
+    lastMeasure=millis();
+    M5.Lcd.println("Rate: "+String(rate,2)+ " kHz");
+    M5.Lcd.println("t: "+String(deltaT,2)+ " ms");
+    M5.Lcd.println("Buffer: "+String(dataLen)+" , Max: "+String(100.*maxDataLen/MAX_DATA,2)+ "%");
+    maxDataLen=0;
+  }
+  
   M5.Imu.getAccelData(&accelX, &accelY, &accelZ);
+  
   float total = sqrt(accelX * accelX + accelY * accelY + (accelZ) * (accelZ));
-
+  
   //zero suppression, only report when the value changes more than 0.1
   if (abs(accelX_last - accelX) > 0.1 || abs(accelY_last - accelY) > 0.1 || abs(accelZ_last - accelZ) > 0.1
-  || millis() - lastUpdate > 500 || millis() < lastUpdate) {
+  || millis() - lastUpdate > 500 || millis() < lastUpdate || (
+    (accelX > 2 && accelX != accelX_last)
+    || (accelY > 2 && accelY != accelY_last)
+    || (accelZ > 2 && accelZ != accelZ_last)
+    ) ) {
     accelX_last = accelX;
     accelY_last = accelY;
     accelZ_last = accelZ;
@@ -120,8 +129,27 @@ void loop() {
     dataLen++;
     dataLen%=MAX_DATA;
     
-    
   } else {
+      //check wifi, reboot if lost
+  if (WiFi.status() != WL_CONNECTED) {
+    M5.Lcd.println("WiFi connection lost, rebooting...");
+    delay(2000);
+    ESP.restart();
+  }
+  // Establish connection to the server
+  if (!client.connected()) {
+    M5.Lcd.println("Connecting to server...");
+    if (!client.connect(serverIP, serverPort)) {
+      M5.Lcd.println("Connection failed!");
+      delay(2000);
+      return;
+    }
+    //clear the screen
+    M5.Lcd.fillScreen(BLACK);
+    //set to bottom
+    M5.Lcd.setCursor(0, 120);
+    M5.Lcd.println("Connected to server!");
+  }
     //no change, take the chance to send one data
     if (dataLen>0) {
       String data = clientName+String(maxTotal, 2) + "  " +
@@ -152,11 +180,17 @@ void loop() {
               //String(buffer[(dataStart+dataLen-1)%MAX_DATA].x, 2) + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].y, 2)
               // + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].z, 2);
  
+  M5.Lcd.fillRect(0, cursorY, 100, 15, BLACK);
+  M5.Lcd.setCursor(0, cursorY);
   M5.Lcd.println(data);
-  //wrap LCD
-  if (M5.Lcd.getCursorY() > 150) {
-    M5.Lcd.fillScreen(BLACK);
-    M5.Lcd.setCursor(0, 0);
+  cursorY+=10;
+  if (cursorY > 60) {
+    cursorY = 0;
   }
+  //wrap LCD
+  // if (M5.Lcd.getCursorY() > 150) {
+  //   M5.Lcd.fillScreen(BLACK);
+  //   M5.Lcd.setCursor(0, 0);
+  // }
 
 }
