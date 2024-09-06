@@ -5,8 +5,8 @@
 const char* ssid = "M5Stack_AP";
 const char* password = "12345678";
 const char* serverIP = "192.168.100.1";
-const uint16_t serverPort = 80;
-String clientName="A ";
+const uint16_t serverPort = 1234;
+String clientName="B ";
 // WiFi client
 WiFiClient client;
 

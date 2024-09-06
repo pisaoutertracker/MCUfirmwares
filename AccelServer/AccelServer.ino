@@ -4,16 +4,28 @@
 #include <WiFiAP.h>
 #include <SD.h>
 #include <SPI.h>
-
+auto colorA = YELLOW;
+auto colorB = RED;
 // WiFi network configuration
 const char* ssid = "M5Stack_AP";
 const char* password = "12345678";
 IPAddress local_ip({192,168,100,1});
 IPAddress gateway=local_ip;
 IPAddress subnet({255,255,255,0});
+long lastLogTime = 0;
+long xCoord = 0;
+const int minY = 40;
+const int maxY = 210;
+const float minLog = 0.25;
+const float maxLog = 16;
+// Server for tcp connections
+WiFiServer server(1234);
 
-// Server configuration
-WiFiServer server(80);
+//http server with uri and header handling
+#include <WebServer.h>
+WebServer webServer(80);
+
+
 File logFile;
 const int MAX_CLIENTS=2;
 WiFiClient clients[MAX_CLIENTS] ;
@@ -46,6 +58,8 @@ void setup() {
     fileNumber++;
   }
  logFile = SD.open("/data_" + String(fileNumber) + ".txt", FILE_WRITE);
+ logFile.println("# starting at unknown time");
+ logFile.flush();
 
   if (!logFile) {
     M5.Lcd.println("Failed to open file for writing!");
@@ -65,6 +79,73 @@ void setup() {
 
   // Start the server
   server.begin();
+  webServer.begin();
+  webServer.on("/",  []() {
+    //list files on SD card
+    //html content
+
+    File root = SD.open("/");
+    String files = "";
+    //send header
+    
+
+    while (File file = root.openNextFile()) {
+      //http link
+      files += "<a href='/";
+      files += file.name();
+      files += "'>";
+      files += file.name();
+      files += "</a> ";
+      files += file.size();
+      files += "<br>";
+      file.close();
+    }
+   webServer.send(200, "text/html", files);
+
+  });
+  webServer.onNotFound( []() {
+    String file = webServer.uri();
+    File f = SD.open(file);
+    if (f) {
+      //read 10kb at time and send it
+      while (f.available()) {
+        char buffer[1024];
+        int n = f.readBytes(buffer, 1024);
+        webServer.sendContent(buffer, n);
+      }
+      
+      
+    } else {
+      webServer.send(404, "text/plain", "File not found "+webServer.uri());
+    }
+   });
+  // webServer.on("/current",  [](WebServer &server) {
+  //   //send logFile
+  //   if (logFile) {
+  //     server.send(200, "text/plain", logFile.readString()+buffer);
+  //   } else {
+  //     server.send(404, "text/plain", "File not found");
+  //   }
+
+  // });
+  // webServer.on("/status",  [](WebServer &server) {
+  //   //send logFile
+  //   String status = "File: " + String(fileNumber) + " Size: " + String(logFile.size()) + " Buffer: " + String(buffer.length());
+  //   status+= " Clients: ";
+  //   for (int i = 0; i < MAX_CLIENTS; i++) {
+  //     if (clients[i]) {
+  //       status += clients[i].remoteIP().toString() + " ";
+  //     }
+  //   }
+  //   status+= " Last data: ";
+  //   for (int i = 0; i < MAX_CLIENTS; i++) {
+  //     if (lastTime[i]) {
+  //       status += String((millis()-lastTime[i])/1000.) + " ";
+  //       status+= lastData[i] + " ";
+  //     }
+  //   }
+  //   server.send(200, "text/plain", status);
+  // });
   M5.Lcd.println("Server started!");
 
  // add interrupt on buttons
@@ -73,7 +154,7 @@ void setup() {
 
 void loop() {
   M5.update();
-
+  webServer.handleClient();
   WiFiClient newClient = server.available();
   if (newClient) {
     Serial.println("New Client Connected.");
@@ -113,10 +194,12 @@ void loop() {
   if(M5.BtnB.wasPressed()){
     buttonBpressed = false;
     logToSD(String(millis()) + " " + "Button B pressed");
+    M5.Lcd.drawLine(xCoord,maxY,xCoord,minY,BLUE);
   }
   if(M5.BtnA.wasPressed()){
     buttonApressed = false;
     logToSD(String(millis()) + " " + "Button A pressed");
+    M5.Lcd.drawLine(xCoord,maxY,xCoord,minY,GREEN);
   }
   for (int i = 0; i < MAX_CLIENTS; i++) {
     if (clients[i] && clients[i].connected()) {
@@ -190,18 +273,14 @@ void logToSD(const String& data) {
     M5.Lcd.println("Failed to log data to SD card!");
   }
 }
-long lastLogTime = 0;
-long xCoord = 0;
-const int minY = 40;
-const int maxY = 210;
-const float minLog = 0.25;
-const float maxLog = 16;
 
-int lastY[MAX_CLIENTS]={210,210};
+
+
 int logY(float y) {
   if(y<=0) return 210;
   return (int)(maxY - (maxY - minY) * ( (log(y) - log(minLog)) / ( log(maxLog) - log(minLog))));
 }
+int lastY[MAX_CLIENTS]={logY(1),logY(1)};
 void logToScreen() {
   if(millis() - lastLogTime < 500 && millis() > lastLogTime){
     return;
@@ -216,11 +295,20 @@ void logToScreen() {
       //B: tagB
       //C: File+
       M5.Lcd.fillRect(0,maxY+1,320,40,BLACK);
-      M5.Lcd.setCursor(20,maxY+1);
-      M5.Lcd.print("tagA");
-      M5.Lcd.setCursor(120,maxY+1);
-      M5.Lcd.print("tagB");
-      M5.Lcd.setCursor(220,maxY+1);
+      M5.Lcd.setTextColor(BLACK);
+      M5.Lcd.fillRect(20,maxY+1,80,40,WHITE);
+      M5.Lcd.setCursor(30,maxY+3);
+      M5.Lcd.print("TagA");
+      
+      M5.Lcd.fillRect(120,maxY+1,80,40,WHITE);
+      M5.Lcd.setCursor(130,maxY+3);
+      M5.Lcd.print("TagB");
+      //draw circle green/blue next to tagA and B
+      M5.Lcd.fillCircle(90,maxY+10,3,GREEN);
+      M5.Lcd.fillCircle(190,maxY+10,3,BLUE);
+
+      M5.Lcd.fillRect(220,maxY+1,80,40,WHITE);
+      M5.Lcd.setCursor(230,maxY+3);
       M5.Lcd.print("File+");
       M5.Lcd.setTextSize(1);
       // //Draw white line a 2g and 4g
@@ -269,20 +357,24 @@ void logToScreen() {
   
   //print time since last SD write
   M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.fillRect(200,0,100,40,BLACK);
+  M5.Lcd.fillRect(180,0,140,40,BLACK);
   M5.Lcd.setCursor(200,0);
   M5.Lcd.print(int((millis()-lastSDTime)/1000.));
   M5.Lcd.print("s ");
   M5.Lcd.setCursor(250,0);
   M5.Lcd.print(buffer.length()/1000);
   M5.Lcd.print("k");
-  M5.Lcd.setCursor(200,20);
+  M5.Lcd.setCursor(180,20);
   M5.Lcd.print("#");
   M5.Lcd.print(fileNumber);
   M5.Lcd.print(" ");
   M5.Lcd.setCursor(250,20);
-  M5.Lcd.print(logFile.size()/1e6);  
-  M5.Lcd.print("M");
+  if(logFile && logFile.size() > 0 ) {
+    M5.Lcd.print(logFile.size()/1e6);  
+    M5.Lcd.print("M");
+  } else {
+    M5.Lcd.print("empty");
+  }
   for(int i=0;i<MAX_CLIENTS;i++){
     //print first 5 chars of the data
     //parse data "A 10.3 1234567890,1.23,4.56,7.89"
@@ -290,16 +382,18 @@ void logToScreen() {
     bool isA = (lastData[i].substring(0,1)=="A");
     //write data in a fixed position
     //increase font size
-    if(isA) M5.Lcd.setTextColor(YELLOW);
-    else M5.Lcd.setTextColor(BLUE);
+    if(isA) M5.Lcd.setTextColor(colorA);
+    else M5.Lcd.setTextColor(colorB);
     if(lastTime[i] < millis()-3000) {
       //set background color to RED if the data is old
-      M5.Lcd.fillRect(i*100,0,100,40,RED);
+      M5.Lcd.fillRect(i*100,0,80,40,RED);
       M5.Lcd.setCursor(i*100,20);
 
       M5.Lcd.println((millis()-lastTime[i])/1000.);
     } else {
-      M5.Lcd.fillRect(i*100,0,100,40,BLACK);
+      M5.Lcd.fillRect(i*100,0,80,40,BLACK);
+      M5.Lcd.setCursor(i*100,20);
+      M5.Lcd.print(isA?"  A ":" B ");
     }
     M5.Lcd.setCursor(i*100,0);
     M5.Lcd.setTextSize(2);
@@ -312,9 +406,9 @@ void logToScreen() {
     
     //M5.Lcd.drawPixel(xCoord+i,y, (i>0)?GREEN:RED);
     if(i==0)  xCoord+=2;
-    //M5.Lcd.drawLine(xCoord-1, lastY[i] , xCoord, y, (isA)?YELLOW:BLUE);
+    //M5.Lcd.drawLine(xCoord-1, lastY[i] , xCoord, y, (isA)?colorA:colorB);
     // use log
-    M5.Lcd.drawLine(xCoord-1, lastY[i] , xCoord, logY(total), (isA)?YELLOW:BLUE);
+    M5.Lcd.drawLine(xCoord-1, lastY[i] , xCoord, logY(total), (isA)?colorA:colorB);
     lastY[i]=logY(total);
    // lastY[i]=y;
    
