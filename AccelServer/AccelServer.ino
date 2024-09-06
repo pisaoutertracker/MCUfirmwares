@@ -14,7 +14,7 @@ IPAddress gateway=local_ip;
 IPAddress subnet({255,255,255,0});
 long lastLogTime = 0;
 long xCoord = 0;
-const int minY = 40;
+const int minY = 60;
 const int maxY = 210;
 const float minLog = 0.25;
 const float maxLog = 16;
@@ -24,7 +24,7 @@ WiFiServer server(1234);
 //http server with uri and header handling
 #include <WebServer.h>
 WebServer webServer(80);
-
+String envData="no env data";
 
 File logFile;
 const int MAX_CLIENTS=2;
@@ -51,7 +51,8 @@ void setup() {
   // Initialize SD card
   if (!SD.begin()) {
     M5.Lcd.println("SD Card initialization failed!");
-    while (1);
+    delay(2000);
+    ESP.restart();
   }
   // find the largest number for the file name and create data_NN+1.txt
   while (SD.exists("/data_" + String(fileNumber) + ".txt")) {
@@ -205,10 +206,14 @@ void loop() {
     if (clients[i] && clients[i].connected()) {
       if (clients[i].available()) {
         String line = clients[i].readStringUntil('\n');
+        if(line.substring(0,3)=="HTP"){
+          envData = line.substring(4);
+        }
         lastTime[i] = millis();
         lastData[i] = line;
         //add millis() and IP of client to the data
         line = String(millis()) + " " + clients[i].remoteIP().toString() + " " + line;
+      
         // Log data to SD card
         logToSD(line);
         // Display data on screen
@@ -368,6 +373,9 @@ void logToScreen() {
   M5.Lcd.print("#");
   M5.Lcd.print(fileNumber);
   M5.Lcd.print(" ");
+  M5.Lcd.setCursor(0,40);
+  M5.Lcd.fillRect(0,40,320,20,BLACK);
+  M5.Lcd.print(envData);
   M5.Lcd.setCursor(250,20);
   if(logFile && logFile.size() > 0 ) {
     M5.Lcd.print(logFile.size()/1e6);  
@@ -388,6 +396,7 @@ void logToScreen() {
       //set background color to RED if the data is old
       M5.Lcd.fillRect(i*100,0,80,40,RED);
       M5.Lcd.setCursor(i*100,20);
+      M5.Lcd.setTextColor(WHITE);
 
       M5.Lcd.println((millis()-lastTime[i])/1000.);
     } else {

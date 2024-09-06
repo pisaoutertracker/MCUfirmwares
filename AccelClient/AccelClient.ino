@@ -9,6 +9,9 @@ const uint16_t serverPort = 1234;
 String clientName="B ";
 // WiFi client
 WiFiClient client;
+#include "M5UnitENV.h"
+SHT3X sht3x;
+QMP6988 qmp;
 
 struct Data {
   float x,y,z,total,maxTotal;
@@ -18,7 +21,7 @@ const int MAX_DATA=10000;
 Data buffer[10000];
 int dataStart=0;
 int dataLen=0;
-
+bool hasEnv=true;
 void setup() {
   M5.begin();
   Serial.begin(115200);
@@ -38,23 +41,30 @@ void setup() {
   M5.Lcd.print("IP Address: ");
   M5.Lcd.println(WiFi.localIP());
 
-  // Initialize MPU6886
-  // use maximum g-range
+  
+  M5.Lcd.println("Searching env sensor");
+  if (!sht3x.begin(&Wire, SHT3X_I2C_ADDR, 2, 1, 400000U)) {
+         M5.Lcd.println("Not found");
+         hasEnv=false;
+    }
+  M5.Lcd.println("Searching QMP6988");
+    if (!qmp.begin(&Wire, QMP6988_SLAVE_ADDRESS_L, 2, 1, 400000U)) {        
+        M5.Lcd.println("Not found");
+         hasEnv=false;
+         delay(1000);
 
+    }
+    if(hasEnv) {
+
+    }
+// Initialize MPU6886
   if (!M5.Imu.begin()) {
     M5.Lcd.println("IMU initialization failed!");
-    while (1) {
-      delay(1000);
-    }
+    //restart
+    delay(2000);
+    ESP.restart();
   }
-//  M5.Imu.setAccelFsr(MPU6886_ACCEL_RANGE_16G);
 
-  // if (!M5.Imu.begin()) {
-  //   M5.Lcd.println("IMU initialization failed!");
-  //   while (1) {
-  //     delay(1000);
-  //   }
-  // }
 }
 float accelX_last = 0;
 float accelY_last = 0;
@@ -66,6 +76,8 @@ int deltaT=0;
 int counter=0;
 int maxDataLen=0;
 int cursorY=0;
+long lastEnv=0;
+String envData="";
 void loop() {
 
   if(dataLen>maxDataLen) {
@@ -82,7 +94,8 @@ void loop() {
     lastMeasure=millis();
     M5.Lcd.println("Rate: "+String(rate,2)+ " kHz");
     M5.Lcd.println("t: "+String(deltaT,2)+ " ms");
-    M5.Lcd.println("Buffer: "+String(dataLen)+" , Max: "+String(100.*maxDataLen/MAX_DATA,2)+ "%");
+    M5.Lcd.println("Buffer: "+String(dataLen)+" Max:"+String(100.*maxDataLen/MAX_DATA,2)+ "%");
+    M5.Lcd.println(envData);
     maxDataLen=0;
   }
   
@@ -162,6 +175,31 @@ void loop() {
       dataStart++;
       dataStart%=MAX_DATA;
     }
+    if(hasEnv) {
+        if (millis()-lastEnv>60000 || millis()<lastEnv || lastEnv==0) {
+          if(sht3x.update() && qmp.update() )
+          {
+            //sent env data to server
+            lastEnv=millis();
+            envData = String(sht3x.cTemp, 1) + " " +
+                String(sht3x.humidity, 0) + " " +
+                String(qmp.cTemp, 1) + " " +
+                String(qmp.pressure/100, 0) + " " +
+                String(qmp.altitude, 0) + "\n";
+            // Send data to the server
+            client.print(String("HTP")+clientName+envData);
+            } else {
+              envData="Env data not ready";
+            }
+      
+        }
+        // Serial.print(sht3x.cTemp);
+        // Serial.print(sht3x.humidity);
+        // Serial.print(qmp.cTemp);
+        // Serial.print(qmp.pressure);
+        // Serial.print(qmp.altitude);
+
+  }
     return;
   }
   
