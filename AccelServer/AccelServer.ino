@@ -208,9 +208,10 @@ void loop() {
         String line = clients[i].readStringUntil('\n');
         if(line.substring(0,3)=="HTP"){
           envData = line.substring(4);
+        } else {
+          lastTime[i] = millis();
+          lastData[i] = line;
         }
-        lastTime[i] = millis();
-        lastData[i] = line;
         //add millis() and IP of client to the data
         line = String(millis()) + " " + clients[i].remoteIP().toString() + " " + line;
       
@@ -386,6 +387,7 @@ void logToScreen() {
   for(int i=0;i<MAX_CLIENTS;i++){
     //print first 5 chars of the data
     //parse data "A 10.3 1234567890,1.23,4.56,7.89"
+    
     float total = lastData[i].substring(2,7).toFloat();
     bool isA = (lastData[i].substring(0,1)=="A");
     //write data in a fixed position
