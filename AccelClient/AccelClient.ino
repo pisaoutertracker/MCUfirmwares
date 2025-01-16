@@ -6,6 +6,12 @@ const char* ssid = "M5Stack_AP";
 const char* password = "12345678";
 const char* serverIP = "192.168.100.1";
 const uint16_t serverPort = 1234;
+
+// WiFi network configuration
+const char* ssidLocal = "CMSPisa";
+const char* passwordLocal = "silicon2003";
+
+
 String clientName="B ";
 // WiFi client
 WiFiClient client;
@@ -22,24 +28,50 @@ Data buffer[10000];
 int dataStart=0;
 int dataLen=0;
 bool hasEnv=true;
+int mode=-1;
+
 void setup() {
   M5.begin();
   Serial.begin(115200);
+  
+  clientName="MAC"+WiFi.macAddress();
 
   // Initialize the screen
   M5.Lcd.println("Connecting to WiFi...");
 
   // Connect to the Wi-Fi network
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  int counter=0;
+  while (WiFi.status() != WL_CONNECTED and counter++ < 10) {
     delay(1000);
     M5.Lcd.print(".");
+    if (WiFi.status() != WL_CONNECTED) {
+       //try local network
+      WiFi.begin(ssidLocal, passwordLocal);
+      delay(1000);
+      M5.Lcd.print("L");
+    }
   }
-
-  // Once connected
-  M5.Lcd.println("\nConnected to WiFi!");
+  //check ssid name
+  if(WiFi.SSID() == ssidLocal) {
+    mode=1;
+    M5.Lcd.println("\nConnected to WiFi!");
   M5.Lcd.print("IP Address: ");
   M5.Lcd.println(WiFi.localIP());
+  }else if(WiFi.SSID() == ssid) {
+    mode=0;
+    M5.Lcd.println("\nConnected to WiFi!");
+  M5.Lcd.print("IP Address: ");
+  M5.Lcd.println(WiFi.localIP());
+  } else {
+    mode=2;
+    M5.Lcd.println("NO KNOWN NETWORK");
+  }
+  
+ 
+
+  // Once connected
+  
 
   
   M5.Lcd.println("Searching env sensor");
@@ -78,7 +110,11 @@ int maxDataLen=0;
 int cursorY=0;
 long lastEnv=0;
 String envData="";
-void loop() {
+
+
+
+
+void loopTransport() {
 
   if(dataLen>maxDataLen) {
     maxDataLen=dataLen;
@@ -231,4 +267,71 @@ void loop() {
   //   M5.Lcd.setCursor(0, 0);
   // }
 
+}
+
+void readEnv(){
+   
+    //show on screen temp and humidity
+    //set background RED if hum > 50% green otherwise
+
+    if(sht3x.update() && qmp.update() )
+    {
+      if (sht3x.humidity>50) {
+        //M5.Lcd.clear();
+        M5.Lcd.fillScreen(RED);
+
+        M5.Lcd.fillRect(0, 40, 320, 40, RED);
+        M5.Lcd.setTextColor(YELLOW);
+      } else {
+        //M5.Lcd.clear();
+        M5.Lcd.fillScreen(GREEN);
+
+        M5.Lcd.fillRect(0, 40, 320, 40, GREEN);
+        M5.Lcd.setTextColor(BLACK);
+      }
+    }
+    //print temperature and humidity
+    //set larger font size
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setCursor(0, 20);
+    M5.Lcd.print("Temp:\n");
+    M5.Lcd.print(sht3x.cTemp, 1);
+    M5.Lcd.print(" C");
+    M5.Lcd.setCursor(0, 70);
+    M5.Lcd.print("Hum:\n");
+    M5.Lcd.print(sht3x.humidity, 0);
+    M5.Lcd.print("%");
+    
+}
+
+void reportToMQTT() {
+
+}
+
+void loopLocal(){
+   readEnv();
+   delay(1000);
+    if (millis() - lastUpdate < 60000 && lastUpdate < millis()) {
+      return;
+    }
+    lastUpdate = millis();
+   reportToMQTT();
+
+}
+
+void loopNoNetwork() {
+     readEnv();
+     delay(1000);
+ 
+}
+
+
+void loop() {
+  if (mode==0) {
+    loopTransport();
+  } else if (mode==1) {
+    loopLocal();
+  } else {
+    loopNoNetwork();
+  }
 }
