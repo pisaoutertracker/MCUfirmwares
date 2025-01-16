@@ -1,5 +1,6 @@
 #include <M5Unified.h>
 #include <WiFi.h>
+#include "PubSubClient.h"
 
 // WiFi network configuration
 const char* ssid = "M5Stack_AP";
@@ -11,6 +12,9 @@ const uint16_t serverPort = 1234;
 const char* ssidLocal = "CMSPisa";
 const char* passwordLocal = "silicon2003";
 
+// Wifi network testing network
+const char* ssidTest = "tbtc";
+const char* passwordTest = "pippo345";
 
 String clientName="B ";
 // WiFi client
@@ -18,6 +22,8 @@ WiFiClient client;
 #include "M5UnitENV.h"
 SHT3X sht3x;
 QMP6988 qmp;
+PubSubClient clientMQTT;
+
 
 struct Data {
   float x,y,z,total,maxTotal;
@@ -35,6 +41,7 @@ void setup() {
   Serial.begin(115200);
   
   clientName="MAC"+WiFi.macAddress();
+  Serial.print(clientName);
 
   // Initialize the screen
   M5.Lcd.println("Connecting to WiFi...");
@@ -50,6 +57,12 @@ void setup() {
       WiFi.begin(ssidLocal, passwordLocal);
       delay(1000);
       M5.Lcd.print("L");
+      if (WiFi.status() != WL_CONNECTED) {
+        //try test network
+        WiFi.begin(ssidTest, passwordTest);
+        delay(1000);
+        M5.Lcd.print("T");
+      }
     }
   }
   //check ssid name
@@ -63,11 +76,31 @@ void setup() {
     M5.Lcd.println("\nConnected to WiFi!");
   M5.Lcd.print("IP Address: ");
   M5.Lcd.println(WiFi.localIP());
-  } else {
+  } else if(WiFi.SSID() == ssidTest) {
     mode=2;
+    M5.Lcd.println("\nConnected to WiFi!");
+  }else {
+    mode=-1;
     M5.Lcd.println("NO KNOWN NETWORK");
   }
   
+  if(mode>0) {
+    M5.Lcd.println("Connecting to MQTT...");
+    clientMQTT.setClient(client);
+//    clientMQTT.setMqttClientName("S3carrier");
+    if(mode==1) {
+        clientMQTT.setServer("192.168.0.45",1883);
+        Serial.println("cmspisa");
+
+    } else {
+        clientMQTT.setServer("test.mosquitto.org",1883);
+        Serial.println("mosquitto");
+
+    }
+    
+  
+  
+  }
  
 
   // Once connected
@@ -300,12 +333,25 @@ void readEnv(){
     M5.Lcd.setCursor(0, 70);
     M5.Lcd.print("Hum:\n");
     M5.Lcd.print(sht3x.humidity, 0);
-    M5.Lcd.print("%");
+    M5.Lcd.print("%\n");
+    M5.Lcd.print((millis() - lastUpdate)/1000. );
     
 }
-
+void onConnectionEstablished()
+{
+  Serial.println("Connesso"); 
+}
 void reportToMQTT() {
 
+   if (clientMQTT.connect("S3Atom")) {
+      Serial.println("connected");
+      auto topic=String("/environment/HumAndTemp")+clientName.substring(clientName.length()-2);
+      auto message=String("{temp=")+String(sht3x.cTemp, 1)+String(",humidity=")+String(sht3x.humidity, 0)+String(",pressure=")+String(qmp.pressure/100, 0)+String(",altitude=")+String(qmp.altitude, 0)+String("}");
+      clientMQTT.publish(topic.c_str(),message.c_str());
+      Serial.println("Reporting");
+   }else{
+    Serial.println("Failed connecting");
+   }
 }
 
 void loopLocal(){
@@ -329,7 +375,7 @@ void loopNoNetwork() {
 void loop() {
   if (mode==0) {
     loopTransport();
-  } else if (mode==1) {
+  } else if (mode>0) {
     loopLocal();
   } else {
     loopNoNetwork();
