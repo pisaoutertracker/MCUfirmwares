@@ -318,9 +318,15 @@ void readEnv(){
         M5.Lcd.setTextColor(YELLOW);
       } else {
         //M5.Lcd.clear();
-        M5.Lcd.fillScreen(GREEN);
+        if(mode==1)
+        {
+          M5.Lcd.fillScreen(GREEN);
+          M5.Lcd.fillRect(0, 40, 320, 40, GREEN);
+        } else {
+          M5.Lcd.fillScreen(YELLOW);
+          M5.Lcd.fillRect(0, 40, 320, 40, YELLOW);
+        }
 
-        M5.Lcd.fillRect(0, 40, 320, 40, GREEN);
         M5.Lcd.setTextColor(BLACK);
       }
     }
@@ -335,7 +341,7 @@ void readEnv(){
     M5.Lcd.print("H:");
     M5.Lcd.print(sht3x.humidity, 0);
     M5.Lcd.print("%\n");
-    M5.Lcd.print("Dew:\n");
+    M5.Lcd.print("Dew:");
     M5.Lcd.print(get_dew_point_c(sht3x.cTemp,sht3x.humidity), 1);
     M5.Lcd.print("\n");
     M5.Lcd.setFreeFont(FSSB9);
