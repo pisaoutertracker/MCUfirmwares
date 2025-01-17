@@ -1,6 +1,7 @@
 #include <M5Unified.h>
 #include <WiFi.h>
 #include "PubSubClient.h"
+#include "Free_Fonts.h"
 
 // WiFi network configuration
 const char* ssid = "M5Stack_AP";
@@ -325,32 +326,56 @@ void readEnv(){
     }
     //print temperature and humidity
     //set larger font size
-    M5.Lcd.setTextSize(2);
-    M5.Lcd.setCursor(0, 20);
-    M5.Lcd.print("Temp:\n");
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setFreeFont(FSSB12);
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.print("T:");
     M5.Lcd.print(sht3x.cTemp, 1);
-    M5.Lcd.print(" C");
-    M5.Lcd.setCursor(0, 70);
-    M5.Lcd.print("Hum:\n");
+    M5.Lcd.print(" C\n");
+    M5.Lcd.print("H:");
     M5.Lcd.print(sht3x.humidity, 0);
     M5.Lcd.print("%\n");
-    M5.Lcd.print((millis() - lastUpdate)/1000. );
+    M5.Lcd.print("Dew:\n");
+    M5.Lcd.print(get_dew_point_c(sht3x.cTemp,sht3x.humidity), 1);
+    M5.Lcd.print("\n");
+    M5.Lcd.setFreeFont(FSSB9);
+    M5.Lcd.print("P:");
+    M5.Lcd.print(qmp.pressure/100, 0);
+    M5.Lcd.print("\n");
+    M5.Lcd.print("Lastupd:");
+    M5.Lcd.print((millis() - lastUpdate)/1000 );
+    M5.Lcd.print("s\n");
     
 }
 void onConnectionEstablished()
 {
   Serial.println("Connesso"); 
 }
+
+float get_dew_point_c(float t_air_c, float rel_humidity) {
+  float A = 17.27;
+  float B = 237.7;
+  float alpha = ((A * t_air_c) / (B + t_air_c)) + log(rel_humidity/100.0);
+  return (B * alpha) / (A - alpha);
+}
+
 void reportToMQTT() {
 
    if (clientMQTT.connect("S3Atom")) {
       Serial.println("connected");
-      auto topic=String("/environment/HumAndTemp")+clientName.substring(clientName.length()-2);
-      auto message=String("{temp=")+String(sht3x.cTemp, 1)+String(",humidity=")+String(sht3x.humidity, 0)+String(",pressure=")+String(qmp.pressure/100, 0)+String(",altitude=")+String(qmp.altitude, 0)+String("}");
+      auto topic=String("/environment/HumAndTemp/")+clientName;
+      //format          message= '{"dewpoint": %.1f, "temperature":%.1f,"RH":%.0f,"Pressure":%.0f}'%(dew_point,t,rh,pressure)
+//      auto message=String("{temp=")+String(sht3x.cTemp, 1)+String(",humidity=")+String(sht3x.humidity, 0)+String(",pressure=")+String(qmp.pressure/100, 0)+String(",altitude=")+String(qmp.altitude, 0)+String("}");
+      auto message=String("{\"dewpoint\":")+
+                   String(get_dew_point_c(sht3x.cTemp,sht3x.humidity), 1)+
+                   String(",\"temperature\":")+String(sht3x.cTemp, 1)+
+                   String(",\"RH\":")+String(sht3x.humidity, 0)+
+                   String(",\"Pressure\":")+String(qmp.pressure/100, 0)+
+                   String("}");
       clientMQTT.publish(topic.c_str(),message.c_str());
-      Serial.println("Reporting");
+   //   Serial.println("Reporting");
    }else{
-    Serial.println("Failed connecting");
+    //Serial.println("Failed connecting");
    }
 }
 
