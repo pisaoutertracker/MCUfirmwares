@@ -24,7 +24,8 @@ WiFiClient client;
 SHT3X sht3x;
 QMP6988 qmp;
 PubSubClient clientMQTT;
-
+float outSidePressure=0;
+long long int lastPressure=0;
 
 struct Data {
   float x,y,z,total,maxTotal;
@@ -91,15 +92,23 @@ void setup() {
 //    clientMQTT.setMqttClientName("S3carrier");
     if(mode==1) {
         clientMQTT.setServer("192.168.0.45",1883);
+        clientMQTT.setCallback(callback); 
+
         Serial.println("cmspisa");
+        reconnect();
+
 
     } else {
         clientMQTT.setServer("test.mosquitto.org",1883);
+        clientMQTT.setCallback(callback); 
+
         Serial.println("mosquitto");
+        reconnect();
+
 
     }
-    
-  
+   // clientMQTT.setCallback(callback); 
+
   
   }
  
@@ -303,6 +312,41 @@ void loopTransport() {
 
 }
 
+void callback(char* topic, byte* payload, unsigned int length) {
+  //parse json message {"dewpoint":7.8,"temperature":23.2,"RH":37,"Pressure":1020}
+  // get pressure
+
+  String message="";
+  for (int i=0;i<length;i++) {
+    message+=(char)payload[i];
+  }
+  Serial.println(message);
+
+  int pressureIndex = message.indexOf("Pressure");
+  int numberIndex = message.indexOf(":",pressureIndex);
+  int commaIndex = message.indexOf(",",numberIndex);
+  int endIndex = message.indexOf("}",numberIndex);
+  int endPressure = (commaIndex>0)?commaIndex:endIndex;
+  String pressure = message.substring(numberIndex+1,endPressure);
+  outSidePressure = pressure.toFloat(); 
+  lastPressure= millis();
+  
+  
+}
+
+void reconnect(){
+  if (clientMQTT.connect("S3Atom")) {
+    Serial.println("connected");
+    //subscribe topic for control
+    clientMQTT.subscribe("/environment/HumAndTemp001");
+    Serial.println("subscribed");
+  } else {
+    Serial.println("Failed connecting");
+  }
+
+    
+}
+
 void readEnv(){
    
     //show on screen temp and humidity
@@ -318,7 +362,7 @@ void readEnv(){
         M5.Lcd.setTextColor(YELLOW);
       } else {
         //M5.Lcd.clear();
-        if(mode==1)
+        if(mode==1 and qmp.pressure >  outSidePressure + 5)
         {
           M5.Lcd.fillScreen(GREEN);
           M5.Lcd.fillRect(0, 40, 320, 40, GREEN);
@@ -345,8 +389,8 @@ void readEnv(){
     M5.Lcd.print(get_dew_point_c(sht3x.cTemp,sht3x.humidity), 1);
     M5.Lcd.print("\n");
     M5.Lcd.setFreeFont(FSSB9);
-    M5.Lcd.print("P:");
-    M5.Lcd.print(qmp.pressure/100, 0);
+    M5.Lcd.print("DP:");
+    M5.Lcd.print(qmp.pressure-outSidePressure, 0);
     M5.Lcd.print("\n");
     M5.Lcd.print("Lastupd:");
     M5.Lcd.print((millis() - lastUpdate)/1000 );
@@ -367,7 +411,7 @@ float get_dew_point_c(float t_air_c, float rel_humidity) {
 
 void reportToMQTT() {
 
-   if (clientMQTT.connect("S3Atom")) {
+   if (clientMQTT.connected()) {
       Serial.println("connected");
       auto topic=String("/environment/HumAndTemp/")+clientName;
       //format          message= '{"dewpoint": %.1f, "temperature":%.1f,"RH":%.0f,"Pressure":%.0f}'%(dew_point,t,rh,pressure)
@@ -376,23 +420,29 @@ void reportToMQTT() {
                    String(get_dew_point_c(sht3x.cTemp,sht3x.humidity), 1)+
                    String(",\"temperature\":")+String(sht3x.cTemp, 1)+
                    String(",\"RH\":")+String(sht3x.humidity, 0)+
-                   String(",\"Pressure\":")+String(qmp.pressure/100, 0)+
+                   String(",\"Pressure\":")+String(qmp.pressure, 0)+
                    String("}");
       clientMQTT.publish(topic.c_str(),message.c_str());
    //   Serial.println("Reporting");
    }else{
-    //Serial.println("Failed connecting");
+    Serial.println("NOT CONNECTED");
    }
 }
 
 void loopLocal(){
    readEnv();
-   delay(1000);
-    if (millis() - lastUpdate < 60000 && lastUpdate < millis()) {
-      return;
-    }
-    lastUpdate = millis();
-   reportToMQTT();
+   delay(300);
+   
+   if (!clientMQTT.connected()) {
+    reconnect();
+   }
+   clientMQTT.loop();
+
+   if (millis() - lastUpdate > 60000 || lastUpdate > millis()) {
+       reportToMQTT();
+       lastUpdate = millis();
+   }
+   
 
 }
 
