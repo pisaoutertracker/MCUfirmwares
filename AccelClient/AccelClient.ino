@@ -365,7 +365,7 @@ void readEnv(){
         M5.Lcd.setTextColor(YELLOW);
       } else {
         //M5.Lcd.clear();
-        if(mode==1 and qmp.pressure >  outSidePressure + calibrationOffset)
+        if(mode==1 and qmp.pressure >  outSidePressure + calibrationOffset + 5)
         {
           M5.Lcd.fillScreen(GREEN);
           M5.Lcd.fillRect(0, 40, 320, 40, GREEN);
