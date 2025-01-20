@@ -26,6 +26,8 @@ QMP6988 qmp;
 PubSubClient clientMQTT;
 float outSidePressure=0;
 long long int lastPressure=0;
+float calibrationOffset=0;
+
 
 struct Data {
   float x,y,z,total,maxTotal;
@@ -41,7 +43,9 @@ int mode=-1;
 void setup() {
   M5.begin();
   Serial.begin(115200);
-  
+  //connect M5 pushbutton to buttonPressed() function
+  //M5.BtnA.setPressedHandler(buttonPressed);
+
   clientName="MAC"+WiFi.macAddress();
   Serial.print(clientName);
 
@@ -153,7 +157,6 @@ int maxDataLen=0;
 int cursorY=0;
 long lastEnv=0;
 String envData="";
-
 
 
 
@@ -362,7 +365,7 @@ void readEnv(){
         M5.Lcd.setTextColor(YELLOW);
       } else {
         //M5.Lcd.clear();
-        if(mode==1 and qmp.pressure >  outSidePressure + 5)
+        if(mode==1 and qmp.pressure >  outSidePressure + calibrationOffset)
         {
           M5.Lcd.fillScreen(GREEN);
           M5.Lcd.fillRect(0, 40, 320, 40, GREEN);
@@ -390,7 +393,7 @@ void readEnv(){
     M5.Lcd.print("\n");
     M5.Lcd.setFreeFont(FSSB9);
     M5.Lcd.print("DP:");
-    M5.Lcd.print(qmp.pressure-outSidePressure, 0);
+    M5.Lcd.print(qmp.pressure-outSidePressure-calibrationOffset, 0);
     M5.Lcd.print("\n");
     M5.Lcd.print("Lastupd:");
     M5.Lcd.print((millis() - lastUpdate)/1000 );
@@ -431,7 +434,17 @@ void reportToMQTT() {
 
 void loopLocal(){
    readEnv();
-   delay(300);
+   M5.update();
+   if(M5.BtnA.wasReleased()){   
+      // Restart the device
+      Serial.println("Button pressed");
+      //calibrate pressure
+      calibrationOffset=qmp.pressure-outSidePressure;
+      Serial.println(calibrationOffset);
+      Serial.println(qmp.pressure);
+      Serial.println(outSidePressure);
+    }
+   //delay(30);
    
    if (!clientMQTT.connected()) {
     reconnect();
