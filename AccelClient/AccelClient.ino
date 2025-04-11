@@ -46,27 +46,29 @@ void setup() {
   //connect M5 pushbutton to buttonPressed() function
   //M5.BtnA.setPressedHandler(buttonPressed);
 
-  clientName="MAC"+WiFi.macAddress();
   Serial.print(clientName);
 
   // Initialize the screen
   M5.Lcd.println("Connecting to WiFi...");
 
   // Connect to the Wi-Fi network
-  WiFi.begin(ssid, password);
   int counter=0;
-  while (WiFi.status() != WL_CONNECTED and counter++ < 10) {
+  WiFi.begin(ssid, password);
     delay(1000);
+
+  while (WiFi.status() != WL_CONNECTED and counter++ < 3) {
+    WiFi.begin(ssid, password);
+    delay(10000);
     M5.Lcd.print(".");
     if (WiFi.status() != WL_CONNECTED) {
        //try local network
       WiFi.begin(ssidLocal, passwordLocal);
-      delay(1000);
+      delay(10000);
       M5.Lcd.print("L");
       if (WiFi.status() != WL_CONNECTED) {
         //try test network
         WiFi.begin(ssidTest, passwordTest);
-        delay(1000);
+        delay(10000);
         M5.Lcd.print("T");
       }
     }
@@ -74,6 +76,7 @@ void setup() {
   //check ssid name
   if(WiFi.SSID() == ssidLocal) {
     mode=1;
+    clientName="MAC"+WiFi.macAddress();
     M5.Lcd.println("\nConnected to WiFi!");
   M5.Lcd.print("IP Address: ");
   M5.Lcd.println(WiFi.localIP());
@@ -169,7 +172,7 @@ void loopTransport() {
   float accelX, accelY, accelZ;
   if(counter++%1000==0) {
     
-    M5.Lcd.fillRect(0, 80, 80, 40, BLACK);
+    M5.Lcd.fillRect(0, 80, 80, 40, BLUE);
     M5.Lcd.setCursor(0, 80);
     deltaT=millis()-lastMeasure;
     float rate=1000.0/(deltaT);
@@ -240,7 +243,7 @@ void loopTransport() {
       return;
     }
     //clear the screen
-    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.fillScreen(BLUE);
     //set to bottom
     M5.Lcd.setCursor(0, 120);
     M5.Lcd.println("Connected to server!");
@@ -269,6 +272,12 @@ void loopTransport() {
                 String(qmp.pressure/100, 0) + " " +
                 String(qmp.altitude, 0) + "\n";
             // Send data to the server
+            M5.Lcd.fillRect(60, 20, 200, 40, BLUE);
+            M5.Lcd.setCursor(60, 20);
+            M5.Lcd.setTextSize(3);
+            M5.Lcd.print(String(sht3x.humidity, 0) + "%");
+            M5.Lcd.setTextSize(1);
+  
             client.print(String("HTP")+clientName+envData);
             } else {
               envData="Env data not ready";
@@ -300,13 +309,14 @@ void loopTransport() {
               //String(buffer[(dataStart+dataLen-1)%MAX_DATA].x, 2) + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].y, 2)
               // + "," + String(buffer[(dataStart+dataLen-1)%MAX_DATA].z, 2);
  
-  M5.Lcd.fillRect(0, cursorY, 100, 15, BLACK);
+  M5.Lcd.fillRect(0, cursorY, 60, 15, BLUE);
   M5.Lcd.setCursor(0, cursorY);
   M5.Lcd.println(data);
   cursorY+=10;
   if (cursorY > 60) {
     cursorY = 0;
   }
+  
   //wrap LCD
   // if (M5.Lcd.getCursorY() > 150) {
   //   M5.Lcd.fillScreen(BLACK);
@@ -433,6 +443,7 @@ void reportToMQTT() {
 }
 
 void loopLocal(){
+
    readEnv();
    M5.update();
    if(M5.BtnA.wasReleased()){   
@@ -460,6 +471,8 @@ void loopLocal(){
 }
 
 void loopNoNetwork() {
+     if(millis() > 180*1000) ESP.restart(); //max three minutes in local
+
      readEnv();
      delay(1000);
  
