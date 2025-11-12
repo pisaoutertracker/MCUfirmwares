@@ -14,7 +14,7 @@ IPAddress gateway=local_ip;
 IPAddress subnet({255,255,255,0});
 long lastLogTime = 0;
 long xCoord = 0;
-const int minY = 60;
+const int minY = 80;
 const int maxY = 210;
 const float minLog = 0.25;
 const float maxLog = 16;
@@ -25,6 +25,8 @@ WiFiServer server(1234);
 #include <WebServer.h>
 WebServer webServer(80);
 String envData="no env data";
+String envDataA="no env data";
+String envDataB="no env data";
 
 File logFile;
 const int MAX_CLIENTS=2;
@@ -208,6 +210,10 @@ void loop() {
         String line = clients[i].readStringUntil('\n');
         if(line.substring(0,3)=="HTP"){
           envData = line.substring(4);
+          if(line.substring(0,4)=="HTPA")
+            envDataA= envData;
+           else
+            envDataB=envData;
         } else {
           lastTime[i] = millis();
           lastData[i] = line;
@@ -376,7 +382,14 @@ void logToScreen() {
   M5.Lcd.print(" ");
   M5.Lcd.setCursor(0,40);
   M5.Lcd.fillRect(0,40,320,20,BLACK);
-  M5.Lcd.print(envData);
+  M5.Lcd.setTextColor(colorA);
+  M5.Lcd.print(envDataA);
+  M5.Lcd.setCursor(0,60);
+  M5.Lcd.fillRect(0,60,320,20,BLACK);
+  M5.Lcd.setTextColor(colorB);
+  M5.Lcd.print(envDataB);
+  M5.Lcd.setTextColor(WHITE);
+  
   M5.Lcd.setCursor(250,20);
   if(logFile && logFile.size() > 0 ) {
     M5.Lcd.print(logFile.size()/1e6);  
